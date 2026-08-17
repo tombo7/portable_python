@@ -136,10 +136,13 @@ def collect_pip_commands(work_dir: Path):
 	return commands
 
 
-def pip_install(python_bin: Path, commands):
+def pip_install(python_bin: Path, commands, no_build_isolation: bool = False):
 	print(f"running {len(commands)} pip install command(s)")
 	for argv in commands:
-		args = [str(python_bin), "-m", "pip", "install", *argv]
+		args = [str(python_bin), "-m", "pip", "install"]
+		if no_build_isolation:
+			args.append("--no-build-isolation")
+		args.extend(argv)
 		print(f"running {shlex.join(args)}")
 		subprocess.check_call(args)
 
@@ -211,7 +214,11 @@ def main(args):
 	download_file("https://bootstrap.pypa.io/get-pip.py", p_getpip)
 	subprocess.check_call([str(p_python_bin), str(p_getpip)])
 
-	pip_install(p_python_bin, commands)
+	if args.no_build_isolation:
+		print("pre-installing setuptools and wheel")
+		subprocess.check_call([str(p_python_bin), "-m", "pip", "install", "setuptools", "wheel"])
+
+	pip_install(p_python_bin, commands, no_build_isolation=args.no_build_isolation)
 
 	(p_python_dir / "requirements.txt").write_bytes(
 		subprocess.check_output([str(p_python_bin), "-m", "pip", "freeze"]))
@@ -241,6 +248,8 @@ def make_parser():
 	parser.add_argument("--no-zip", action = "store_true", default = bool_env("NO_ZIP"))
 	parser.add_argument("--keep-files", action = "store_true", default = bool_env("KEEP_FILES"),
 		help = "also put the unzipped tree into release_dir")
+	parser.add_argument("--no-build-isolation", action = "store_true", default = bool_env("NO_BUILD_ISOLATION"),
+		help = "pre-install setuptools and wheel, pass --no-build-isolation to pip (for legacy sdists)")
 	parser.add_argument("--keep-download", action = "store_true", help = "keep the work dir (downloaded zips)")
 	return parser
 

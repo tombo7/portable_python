@@ -56,6 +56,10 @@ on:
         description: "Also upload the unzipped tree (slow, many files)"
         type: boolean
         default: false
+      no_build_isolation:
+        description: "Pre-install setuptools/wheel and pass --no-build-isolation to pip (for legacy sdist-only packages)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -89,6 +93,7 @@ jobs:
           REQUIREMENTS_5: ${{ inputs.requirements_5 }}
           PACKAGES_5: ${{ inputs.packages_5 }}
           KEEP_FILES: ${{ inputs.keep_unzipped }}
+          NO_BUILD_ISOLATION: ${{ inputs.no_build_isolation }}
         run: python src/create_portable_python.py --output-dir build
 
       - name: Upload zip

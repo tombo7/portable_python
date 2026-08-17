@@ -19,6 +19,7 @@ Based on the python.org embeddable zips. Unzip anywhere, run `python.exe` — no
 | `requirements_1` … `requirements_5` | a requirements.txt — encoded (see next section), a `http(s)://` URL to one, or short inline text |
 | `packages_1` … `packages_5` | plain `pip install` arguments, exactly as you'd type them, e.g. `torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0` or `--index-url https://download.pytorch.org/whl/cu124 torch` |
 | `keep_unzipped` | also upload the unzipped tree as a second artifact (slow) |
+| `no_build_isolation` | pre-install setuptools+wheel and pass `--no-build-isolation` to pip (helps legacy sdist-only packages) |
 
 **Install order:** slot 1 → 5. Each slot's `requirements_N` and `packages_N` are combined into
 **one** `pip install` (`pip install -r <requirements_N> <packages_N…>`), so pip resolves them together.
@@ -91,7 +92,7 @@ python src\create_portable_python.py --python-version 3.13 --output-dir build
 Result: `build\release_dir\portable_python_3.13.15.zip`.
 
 Flags: `-p/--python-version`, `-u/--url` (override download URL), `-o/--output-dir` (default `build`),
-`-S/--stdlib {extract,original}`, `--no-zip`, `--keep-files`, `--keep-download`.
+`-S/--stdlib {extract,original}`, `--no-zip`, `--keep-files`, `--no-build-isolation`, `--keep-download`.
 
 Environment variables: `PYTHON_VERSION`, `REQUIREMENTS_1..5`, `PACKAGES_1..5`, `STDLIB`,
-`NO_ZIP`, `KEEP_FILES` (booleans: `1/true/yes/on` or `0/false/no/off`).
+`NO_ZIP`, `KEEP_FILES`, `NO_BUILD_ISOLATION` (booleans: `1/true/yes/on` or `0/false/no/off`).
