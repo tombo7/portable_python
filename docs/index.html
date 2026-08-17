@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>portable_python requirements encoder</title>
+<style>
+  :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+  body { max-width: 900px; margin: 2rem auto; padding: 0 1rem; line-height: 1.45; }
+  h1 { font-size: 1.4rem; }
+  .slot { border: 1px solid #8884; border-radius: 6px; padding: .75rem 1rem; margin: 1rem 0; }
+  .slot h2 { font-size: 1rem; margin: 0 0 .5rem; }
+  textarea { width: 100%; min-height: 8rem; font-family: ui-monospace, monospace; font-size: .85rem; box-sizing: border-box; }
+  .row { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin-top: .5rem; }
+  input.out { flex: 1; min-width: 12rem; font-family: ui-monospace, monospace; font-size: .8rem; }
+  .meta { font-size: .8rem; opacity: .75; }
+  .over { color: #c33; font-weight: bold; }
+  button { cursor: pointer; }
+  code { font-family: ui-monospace, monospace; }
+</style>
+</head>
+<body>
+<h1>portable_python requirements encoder</h1>
+<p>
+  GitHub Actions run-form inputs are single-line and swallow newlines when you paste a
+  <code>requirements.txt</code>. Paste it here instead, copy the one-line result into
+  <code>requirements_N</code> on the
+  <a id="wf-link" href="../actions/workflows/build.yml">Run workflow</a> form.
+  Everything happens in your browser; nothing is uploaded.
+</p>
+<p class="meta">
+  Format: <label><input type="radio" name="fmt" value="b64gz" checked> b64gz (compressed)</label>
+  <label><input type="radio" name="fmt" value="b64"> b64</label>
+  <label><input type="radio" name="fmt" value="esc"> escaped (\n, human readable)</label>
+  &nbsp;·&nbsp; total <span id="total">0</span> / 65535 chars
+</p>
+
+<div id="slots"></div>
+
+<script>
+const LIMIT = 65535;
+const slotsEl = document.getElementById("slots");
+const totalEl = document.getElementById("total");
+const enc = new TextEncoder();
+
+function b64(bytes) {
+  let s = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+
+async function gzipBytes(bytes) {
+  const cs = new CompressionStream("gzip");
+  const w = cs.writable.getWriter(); w.write(bytes); w.close();
+  return new Uint8Array(await new Response(cs.readable).arrayBuffer());
+}
+
+async function encode(text, fmt) {
+  if (!text.trim()) return "";
+  if (fmt === "esc") return text.replace(/\r\n?/g, "\n").replace(/\n+$/, "").split("\n").join("\\n");
+  const bytes = enc.encode(text);
+  if (fmt === "b64gz" && "CompressionStream" in window) return "b64gz:" + b64(await gzipBytes(bytes));
+  return "b64:" + b64(bytes);
+}
+
+const slots = [];
+for (let n = 1; n <= 5; n++) {
+  const div = document.createElement("div");
+  div.className = "slot";
+  div.innerHTML = `
+    <h2>requirements_${n}</h2>
+    <textarea placeholder="paste requirements.txt contents (or drop a file)"></textarea>
+    <div class="row">
+      <input class="out" readonly placeholder="encoded output">
+      <button type="button">Copy</button>
+      <span class="meta len">0 chars</span>
+    </div>`;
+  slotsEl.appendChild(div);
+  const ta = div.querySelector("textarea"), out = div.querySelector("input.out"),
+        btn = div.querySelector("button"), len = div.querySelector(".len");
+  slots.push({ ta, out, len });
+  ta.addEventListener("input", update);
+  ta.addEventListener("drop", e => {
+    e.preventDefault();
+    const f = e.dataTransfer.files[0];
+    if (f) f.text().then(t => { ta.value = t; update(); });
+  });
+  ta.addEventListener("dragover", e => e.preventDefault());
+  btn.addEventListener("click", async () => {
+    await navigator.clipboard.writeText(out.value);
+    btn.textContent = "Copied"; setTimeout(() => btn.textContent = "Copy", 1200);
+  });
+}
+document.querySelectorAll('input[name="fmt"]').forEach(r => r.addEventListener("change", update));
+
+let seq = 0;
+async function update() {
+  const my = ++seq;
+  const fmt = document.querySelector('input[name="fmt"]:checked').value;
+  const results = await Promise.all(slots.map(s => encode(s.ta.value, fmt)));
+  if (my !== seq) return;
+  let total = 0;
+  slots.forEach((s, i) => { s.out.value = results[i]; s.len.textContent = results[i].length + " chars"; total += results[i].length; });
+  totalEl.textContent = total;
+  totalEl.className = total > LIMIT ? "over" : "";
+}
+
+// on github.io the repo lives at /<repo>/ ; point the link at the repo's workflow page
+const m = location.hostname.match(/^([^.]+)\.github\.io$/);
+const repo = location.pathname.split("/").filter(Boolean)[0];
+if (m && repo) document.getElementById("wf-link").href = `https://github.com/${m[1]}/${repo}/actions/workflows/build.yml`;
+</script>
+</body>
+</html>

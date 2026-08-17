@@ -1,0 +1,109 @@
+name: Build portable Python
+
+on:
+  workflow_dispatch:
+    inputs:
+      python_version:
+        description: "Python version"
+        type: choice
+        default: "3.13"
+        options: ["3.13", "3.14", "3.12", "3.11"]
+      python_version_exact:
+        description: "Exact X.Y.Z (optional, overrides the dropdown)"
+        type: string
+        default: ""
+      requirements_1:
+        description: "Requirements 1 - encoded (b64gz:/b64:), a URL, or short inline text. Encoder: see README"
+        type: string
+        default: ""
+      packages_1:
+        description: "Packages 1 - pip install arguments, e.g. torch==2.6.0 torchvision==0.21.0"
+        type: string
+        default: ""
+      requirements_2:
+        description: "Requirements 2"
+        type: string
+        default: ""
+      packages_2:
+        description: "Packages 2"
+        type: string
+        default: ""
+      requirements_3:
+        description: "Requirements 3"
+        type: string
+        default: ""
+      packages_3:
+        description: "Packages 3"
+        type: string
+        default: ""
+      requirements_4:
+        description: "Requirements 4"
+        type: string
+        default: ""
+      packages_4:
+        description: "Packages 4"
+        type: string
+        default: ""
+      requirements_5:
+        description: "Requirements 5"
+        type: string
+        default: ""
+      packages_5:
+        description: "Packages 5"
+        type: string
+        default: ""
+      keep_unzipped:
+        description: "Also upload the unzipped tree (slow, many files)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2025
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+
+      # host interpreter that runs the build script; unrelated to the version being built
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Build
+        id: build
+        shell: bash
+        # all free-text inputs go through env, never inline in the script -> no shell injection
+        env:
+          PYTHON_VERSION: ${{ inputs.python_version_exact || inputs.python_version }}
+          REQUIREMENTS_1: ${{ inputs.requirements_1 }}
+          PACKAGES_1: ${{ inputs.packages_1 }}
+          REQUIREMENTS_2: ${{ inputs.requirements_2 }}
+          PACKAGES_2: ${{ inputs.packages_2 }}
+          REQUIREMENTS_3: ${{ inputs.requirements_3 }}
+          PACKAGES_3: ${{ inputs.packages_3 }}
+          REQUIREMENTS_4: ${{ inputs.requirements_4 }}
+          PACKAGES_4: ${{ inputs.packages_4 }}
+          REQUIREMENTS_5: ${{ inputs.requirements_5 }}
+          PACKAGES_5: ${{ inputs.packages_5 }}
+          KEEP_FILES: ${{ inputs.keep_unzipped }}
+        run: python src/create_portable_python.py --output-dir build
+
+      - name: Upload zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.build.outputs.name }}
+          path: build/release_dir/${{ steps.build.outputs.name }}.zip
+          if-no-files-found: error
+          compression-level: 0
+
+      - name: Upload unzipped tree
+        if: ${{ inputs.keep_unzipped }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.build.outputs.name }}_files
+          path: build/release_dir/${{ steps.build.outputs.name }}/
+          if-no-files-found: error
+          compression-level: 1
